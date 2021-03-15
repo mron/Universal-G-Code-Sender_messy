@@ -111,6 +111,16 @@
             <artifactId>ugs-platform-plugin-cloud-storage</artifactId>
             <version>${project.version}</version>
         </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>ugs-platform-plugin-toolbox</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>${project.groupId}</groupId>
+            <artifactId>ugs-platform-plugin-dro</artifactId>
+            <version>${project.version}</version>
+        </dependency>
     </dependencies>
 
     <build>
@@ -295,7 +305,7 @@
                                         <!-- Create Archive -->
                                         <exec dir="${project.build.directory}" executable="zip" failonerror="true">
                                             <arg value="-r"/>
-                                            <arg value="${project.artifactId}-${project.version}-win.zip"/>
+                                            <arg value="win-${project.artifactId}-${project.version}.zip"/>
                                             <arg value="${brandingToken}-win"/>
                                         </exec>
 
@@ -419,7 +429,7 @@
                                   <arg value="${ugs.appbundle.name}"/>
                                   <arg value="-r"/>
                                   <arg value="-o"/>
-                                  <arg value="${project.artifactId}-${project.version}.dmg"/>
+                                  <arg value="ios-${project.artifactId}-${project.version}.dmg"/>
                                   <arg value="${project.build.directory}/${ugs.app.title}"/>
                               </exec>
                           </target>
@@ -493,7 +503,7 @@
                      <exec dir="${project.build.directory}" executable="tar" failonerror="true">
                        <env key="GZIP" value="-9"/>
                        <arg value="-czvf"/>
-                       <arg value="${project.artifactId}-${project.version}-pi.tar.gz"/>
+                       <arg value="pi-${project.artifactId}-${project.version}.tar.gz"/>
                        <arg value="-C"/>
                        <arg value="${project.build.directory}"/>
                        <arg value="${brandingToken}-pi"/>
@@ -569,7 +579,7 @@
                                         <exec dir="${project.build.directory}" executable="tar" failonerror="true">
                                             <env key="GZIP" value="-9"/>
                                             <arg value="-czvf"/>
-                                            <arg value="${project.artifactId}-${project.version}-linux.tar.gz"/>
+                                            <arg value="linux-${project.artifactId}-${project.version}.tar.gz"/>
                                             <arg value="-C"/>
                                             <arg value="${project.build.directory}"/>
                                             <arg value="${brandingToken}-linux"/>

@@ -26,6 +26,7 @@ import com.willwinder.ugs.nbm.visualizer.options.VisualizerOptions;
 import com.willwinder.ugs.nbm.visualizer.shared.Renderable;
 import com.willwinder.universalgcodesender.gcode.util.GcodeParserException;
 import com.willwinder.universalgcodesender.i18n.Localization;
+import com.willwinder.universalgcodesender.model.Position;
 import com.willwinder.universalgcodesender.utils.GUIHelpers;
 import com.willwinder.universalgcodesender.utils.GcodeStreamReader;
 import com.willwinder.universalgcodesender.utils.IGcodeStreamReader;
@@ -33,12 +34,13 @@ import com.willwinder.universalgcodesender.visualizer.GcodeViewParse;
 import com.willwinder.universalgcodesender.visualizer.LineSegment;
 import com.willwinder.universalgcodesender.visualizer.VisualizerUtils;
 
-import javax.vecmath.Point3d;
 import java.awt.*;
 import java.io.File;
 import java.io.IOException;
+import java.nio.Buffer;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -47,6 +49,9 @@ import static com.jogamp.opengl.GL.GL_LINES;
 import static com.jogamp.opengl.fixedfunc.GLPointerFunc.GL_COLOR_ARRAY;
 import static com.jogamp.opengl.fixedfunc.GLPointerFunc.GL_VERTEX_ARRAY;
 import static com.willwinder.ugs.nbm.visualizer.options.VisualizerOptions.*;
+import com.willwinder.ugs.nbm.visualizer.shared.RotationService;
+
+import java.util.ArrayList;
 
 /**
  *
@@ -55,12 +60,18 @@ import static com.willwinder.ugs.nbm.visualizer.options.VisualizerOptions.*;
 public class GcodeModel extends Renderable {
     private static final Logger logger = Logger.getLogger(GcodeModel.class.getName());
 
+    private final RotationService rs;
+
+    private boolean forceOldStyle = false;
     private boolean colorArrayDirty, vertexArrayDirty, vertexBufferDirty;
 
     // Gcode file data
     private String gcodeFile = null;
     private boolean isDrawable = false; //True if a file is loaded; false if not
+
+    // TODO: don't save the line list.
     private List<LineSegment> gcodeLineList; //An ArrayList of linesegments composing the model
+    private List<LineSegment> pointList; //An ArrayList of linesegments composing the model
     private int currentCommandNumber = 0;
 
     // OpenGL Object Buffer Variables
@@ -70,9 +81,9 @@ public class GcodeModel extends Renderable {
     private FloatBuffer lineVertexBuffer = null;
     private ByteBuffer lineColorBuffer = null;
 
-    private Point3d objectMin;
-    private Point3d objectMax;
-    private Point3d objectSize;
+    private Position objectMin;
+    private Position objectMax;
+    private Position objectSize;
 
     // Preferences
     private Color linearColor;
@@ -81,9 +92,10 @@ public class GcodeModel extends Renderable {
     private Color plungeColor;
     private Color completedColor;
 
-    public GcodeModel(String title) {
+    public GcodeModel(String title, RotationService rs) {
         super(10, title);
-        objectSize = new Point3d();
+        objectSize = new Position(0, 0, 0);
+        this.rs = rs;
         reloadPreferences(new VisualizerOptions());
     }
 
@@ -106,7 +118,7 @@ public class GcodeModel extends Renderable {
         this.currentCommandNumber = 0;
 
         boolean result = generateObject();
-        
+
         // Force a display in case an animator isn't running.
         //forceRedraw();
 
@@ -123,7 +135,7 @@ public class GcodeModel extends Renderable {
     }
 
     public List<LineSegment> getLineList() {
-        return this.gcodeLineList;
+        return this.pointList != null ? this.pointList : Collections.emptyList();
     }
 
     @Override
@@ -147,19 +159,19 @@ public class GcodeModel extends Renderable {
     }
 
     @Override
-    public void draw(GLAutoDrawable drawable, boolean idle, Point3d machineCoord, Point3d workCoord, Point3d focusMin, Point3d focusMax, double scaleFactor, Point3d mouseCoordinates, Point3d rotation) {
+    public void draw(GLAutoDrawable drawable, boolean idle, Position machineCoord, Position workCoord, Position focusMin, Position focusMax, double scaleFactor, Position mouseCoordinates, Position rotation) {
         if (!isDrawable) return;
 
         GL2 gl = drawable.getGL().getGL2();
-        
-        // Batch mode if available 
+
+        // Batch mode if available
         boolean forceOldStyle = false;
         if(!forceOldStyle
                 && gl.isFunctionAvailable( "glGenBuffers" )
                 && gl.isFunctionAvailable( "glBindBuffer" )
                 && gl.isFunctionAvailable( "glBufferData" )
                 && gl.isFunctionAvailable( "glDeleteBuffers" ) ) {
-            
+
             // Initialize OpenGL arrays if required.
             if (this.vertexBufferDirty && !vertexArrayDirty && !colorArrayDirty) {
                 updateVertexBuffers();
@@ -191,8 +203,7 @@ public class GcodeModel extends Renderable {
 
             int verts = 0;
             int colors = 0;
-            for(LineSegment ls : gcodeLineList)
-            {
+            for (int i = 0; i < pointList.size(); i++) {
                 gl.glColor3ub(lineColorData[colors++],lineColorData[colors++],lineColorData[colors++]);
                 gl.glVertex3d(lineVertexData[verts++], lineVertexData[verts++], lineVertexData[verts++]);
                 gl.glColor3ub(lineColorData[colors++],lineColorData[colors++],lineColorData[colors++]);
@@ -206,12 +217,113 @@ public class GcodeModel extends Renderable {
         // drawn before.
     }
     
-    public Point3d getMin() {
+    public Position getMin() {
         return this.objectMin;
     }
 
-    public Point3d getMax() {
+    public Position getMax() {
         return this.objectMax;
+    }
+
+    private static double sinIfNotZero(double angle) {
+      return angle == 0 ? 0.0 : Math.sin(Math.toRadians(angle));
+    }
+
+    private static double cosIfNotZero(double angle) {
+      return angle == 0 ? 0.0 : Math.cos(Math.toRadians(angle));
+    }
+
+    public static LineSegment toCartesian(LineSegment p) {
+        Position start = new Position(p.getStart().x, p.getStart().y, p.getStart().z);
+        Position end = new Position(p.getEnd().x, p.getEnd().y, p.getEnd().z);
+
+        if (hasRotation(p.getStart()) || hasRotation(p.getEnd())) {
+          double sx = p.getStart().x;
+          double sy = p.getStart().y;
+          double sz = p.getStart().z;
+          double sa = p.getStart().a;
+          double sb = p.getStart().b;
+          double sc = p.getStart().c;
+          double sSinA = sinIfNotZero(sa);
+          double sCosA = cosIfNotZero(sa);
+          double sSinB = sinIfNotZero(sb);
+          double sCosB = cosIfNotZero(sb);
+          double sSinC = sinIfNotZero(sc);
+          double sCosC = cosIfNotZero(sc);
+
+          double ex = p.getEnd().x;
+          double ey = p.getEnd().y;
+          double ez = p.getEnd().z;
+          double ea = p.getEnd().a;
+          double eb = p.getEnd().b;
+          double ec = p.getEnd().c;
+          double eSinA = sinIfNotZero(ea);
+          double eCosA = cosIfNotZero(ea);
+          double eSinB = sinIfNotZero(eb);
+          double eCosB = cosIfNotZero(eb);
+          double eSinC = sinIfNotZero(ec);
+          double eCosC = cosIfNotZero(ec);
+
+          // X-Axis rotation
+          // x1 = x0
+          // y1 = y0cos(u) − z0sin(u)
+          // z1 = y0sin(u) + z0cos(u)	
+          if (sa != 0) {
+            start.y = sy * sCosA - sz * sSinA;
+            start.z = sy * sSinA + sz * sCosA;
+          }
+          if (ea != 0) {
+            end.y = ey * eCosA - ez * eSinA;
+            end.z = ey * eSinA + ez * eCosA;
+            
+          }
+
+          // Y-Axis rotation
+          // x2 = x1cos(v) + z1sin(v)
+          // y2 = y1
+          // z2 = − x1sin(v) + z1cos(v)	
+          if (sb != 0) {
+            start.x = sx * sCosB + sz * sSinB;
+            start.z = -1 * sx * sSinB + sz * sCosB;
+          }
+          if (eb != 0) {
+            end.x = ex * eCosB + ez * eSinB;
+            end.z = -1 * ex * eSinB + ez * eCosB;
+          }
+          
+          // Z-Axis rotation
+          // x3 = x2cos(w) − y2sin(w)
+          // y3 = x2sin(w) + y2cos(w)
+          // z3 = z2	
+          if (sc != 0) {
+            start.x = sx * sCosC - sy * sSinC;
+            start.y = sx * sSinC + sy * sCosC;
+          }
+          if (ec != 0) {
+            end.x = ex * eCosC - ey * eSinC;
+            end.y = ex * eSinC + ey * eCosC;
+          }
+        }
+
+        // TODO: Somehow figure out how to optimize the way Position, Point3d, PointSegment and LineSegment are used.
+        LineSegment next = new LineSegment(start, end, p.getLineNumber());
+        next.setIsArc(p.isArc());
+        next.setIsFastTraverse(p.isFastTraverse());
+        next.setIsRotation(p.isFastTraverse());
+        next.setIsZMovement(p.isZMovement());
+        next.setSpeed(p.getSpeed());
+
+        return next;
+    }
+
+    /**
+     * Returns true if the position has any rotation
+     *
+     * @param position
+     * @return true if the position contains rotations
+     */
+    private static boolean hasRotation(Position position) {
+        return position.a != 0 || position.b != 0 || position.c != 0;
     }
 
     /**
@@ -221,7 +333,7 @@ public class GcodeModel extends Renderable {
     {
         isDrawable = false;
         if (this.gcodeFile == null){ return false; }
-        
+
         try {
             GcodeViewParse gcvp = new GcodeViewParse();
             logger.log(Level.INFO, "About to process {}", gcodeFile);
@@ -233,6 +345,14 @@ public class GcodeModel extends Renderable {
                 linesInFile = VisualizerUtils.readFiletoArrayList(this.gcodeFile);
                 gcodeLineList = gcvp.toObjRedux(linesInFile, 0.3);
             }
+
+            // Convert LineSegments to points.
+            this.pointList = new ArrayList<>(gcodeLineList.size());
+
+            for (LineSegment ls : gcodeLineList) {
+              this.pointList.add(GcodeModel.toCartesian(ls));
+            }
+            gcodeLineList = pointList;
 
             this.objectMin = gcvp.getMinimumExtremes();
             this.objectMax = gcvp.getMaximumExtremes();
@@ -247,7 +367,7 @@ public class GcodeModel extends Renderable {
             System.out.println("               Y ("+objectMin.y+", "+objectMax.y+")");
             System.out.println("               Z ("+objectMin.z+", "+objectMax.z+")");
 
-            Point3d center = VisualizerUtils.findCenter(objectMin, objectMax);
+            Position center = VisualizerUtils.findCenter(objectMin, objectMax);
             System.out.println("Center = " + center.toString());
             System.out.println("Num Line Segments :" + gcodeLineList.size());
 
@@ -259,8 +379,8 @@ public class GcodeModel extends Renderable {
             this.scaleFactorBase = VisualizerUtils.findScaleFactor(this.xSize, this.ySize, this.objectMin, this.objectMax);
             this.scaleFactor = this.scaleFactorBase * this.zoomMultiplier;
 
-            this.dimensionsLabel = Localization.getString("VisualizerCanvas.dimensions") + ": " 
-                    + Localization.getString("VisualizerCanvas.width") + "=" + format.format(objectWidth) + " " 
+            this.dimensionsLabel = Localization.getString("VisualizerCanvas.dimensions") + ": "
+                    + Localization.getString("VisualizerCanvas.width") + "=" + format.format(objectWidth) + " "
                     + Localization.getString("VisualizerCanvas.height") + "=" + format.format(objectHeight);
             */
 
@@ -270,7 +390,7 @@ public class GcodeModel extends Renderable {
             this.numberOfVertices = gcodeLineList.size() * 2;
             this.lineVertexData = new float[numberOfVertices * 3];
             this.lineColorData = new byte[numberOfVertices * 3];
-            
+
             this.updateVertexBuffers();
         } catch (GcodeParserException | IOException e) {
             String error = Localization.getString("mainWindow.error.openingFile") + " : " + e.getLocalizedMessage();
@@ -310,8 +430,8 @@ public class GcodeModel extends Renderable {
 
                 // Draw it.
                 {
-                    Point3d p1 = ls.getStart();
-                    Point3d p2 = ls.getEnd();
+                    Position p1 = ls.getStart();
+                    Position p2 = ls.getEnd();
 
                     c[0] = (byte) color.getRed();
                     c[1] = (byte) color.getGreen();
@@ -343,54 +463,54 @@ public class GcodeModel extends Renderable {
             this.vertexArrayDirty = true;
         }
     }
-    
+
     /**
      * Initialize or update open gl geometry array in native buffer objects.
      */
     private void updateGLGeometryArray(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
-        
+
         // Reset buffer and set to null of new geometry doesn't fit.
         if (lineVertexBuffer != null) {
-            lineVertexBuffer.clear();
+            ((Buffer)lineVertexBuffer).clear();
             if (lineVertexBuffer.remaining() < lineVertexData.length) {
                 lineVertexBuffer = null;
             }
         }
-        
+
         if (lineVertexBuffer == null) {
             lineVertexBuffer = Buffers.newDirectFloatBuffer(lineVertexData.length);
         }
-        
+
         lineVertexBuffer.put(lineVertexData);
-        lineVertexBuffer.flip();
+        ((Buffer)lineVertexBuffer).flip();
         gl.glVertexPointer( 3, GL.GL_FLOAT, 0, lineVertexBuffer );
     }
-    
+
     /**
      * Initialize or update open gl color array in native buffer objects.
      */
     private void updateGLColorArray(GLAutoDrawable drawable) {
         GL2 gl = drawable.getGL().getGL2();
-        
+
         // Reset buffer and set to null of new colors don't fit.
         if (lineColorBuffer != null) {
-            lineColorBuffer.clear();
+            ((Buffer)lineColorBuffer).clear();
 
             if (lineColorBuffer.remaining() < lineColorData.length) {
                 lineColorBuffer = null;
             }
         }
-        
+
         if (lineColorBuffer == null) {
             if (lineColorData == null) {
                 updateVertexBuffers();
             }
             lineColorBuffer = Buffers.newDirectByteBuffer(this.lineColorData.length);
         }
-        
+
         lineColorBuffer.put(lineColorData);
-        lineColorBuffer.flip();
+        ((Buffer)lineColorBuffer).flip();
         gl.glColorPointer( 3, GL.GL_UNSIGNED_BYTE, 0, lineColorBuffer );
     }
 }

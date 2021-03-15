@@ -1,5 +1,5 @@
 /*
-    Copyright 2015-2018 Will Winder
+    Copyright 2015-2021 Will Winder
 
     This file is part of Universal Gcode Sender (UGS).
 
@@ -175,7 +175,7 @@ public class GUIBackend implements BackendAPI, ControllerListener, SettingChange
 
     private void initGcodeParser() {
         // Configure gcode parser.
-        gcp.resetCommandProcessors();
+        gcp.clearCommandProcessors();
 
         try {
             List<CommandProcessor> processors = FirmwareUtils.getParserFor(firmware, settings).orElse(null);
@@ -318,7 +318,6 @@ public class GUIBackend implements BackendAPI, ControllerListener, SettingChange
         parser.addCommandProcessor(new WhitespaceProcessor());
         parser.addCommandProcessor(new M30Processor());
         parser.addCommandProcessor(new DecimalProcessor(4));
-        parser.addCommandProcessor(new CommandLengthProcessor(50));
     }
 
     @Override
@@ -350,13 +349,19 @@ public class GUIBackend implements BackendAPI, ControllerListener, SettingChange
     }
 
     @Override
-    public void adjustManualLocation(double distanceX, double distanceY, double distanceZ, double feedRate, Units units) throws Exception {
+    public void adjustManualLocation(PartialPosition distance, double feedRate) throws Exception {
+        boolean empty = !Arrays.stream(Axis.values())
+                .map(axis -> distance.hasAxis(axis) ? distance.getAxis(axis) : 0)
+                .filter(aDouble -> aDouble != 0.0)
+                .findAny()
+                .isPresent();
+
         // Don't send empty commands.
-        if ((distanceX == 0) && (distanceY == 0) && (distanceZ == 0)) {
+        if (empty) {
             return;
         }
 
-        controller.jogMachine(distanceX, distanceY, distanceZ, feedRate, units);
+        controller.jogMachine(distance, feedRate);
     }
 
     @Override
@@ -416,12 +421,24 @@ public class GUIBackend implements BackendAPI, ControllerListener, SettingChange
     @Override
     public void setGcodeFile(File file) throws Exception {
         logger.log(Level.INFO, "Setting gcode file.");
+        this.sendUGSEvent(new UGSEvent(FileState.OPENING_FILE, file.getAbsolutePath()), false);
         initGcodeParser();
         this.gcodeFile = file;
+        processGcodeFile();
+    }
+
+    @Override
+    public void reloadGcodeFile() throws Exception {
+        logger.log(Level.INFO, "Reloading gcode file.");
+        this.sendUGSEvent(new UGSEvent(FileState.OPENING_FILE, gcodeFile.getAbsolutePath()), false);
+        processGcodeFile();
+    }
+
+    private void processGcodeFile() throws Exception {
         this.processedGcodeFile = null;
 
         this.sendUGSEvent(new UGSEvent(FileState.FILE_LOADING,
-                file.getAbsolutePath()), false);
+                this.gcodeFile.getAbsolutePath()), false);
 
         initializeProcessedLines(true, this.gcodeFile, this.gcp);
 
@@ -482,7 +499,27 @@ public class GUIBackend implements BackendAPI, ControllerListener, SettingChange
 
         this.setGcodeFile(target);
     }
-    
+
+    @Override
+    public void applyCommandProcessor(CommandProcessor commandProcessor) throws Exception {
+        logger.log(Level.INFO, "Applying new command processor");
+        gcp.addCommandProcessor(commandProcessor);
+
+        if(gcodeFile != null) {
+            processGcodeFile();
+        }
+    }
+
+    @Override
+    public void removeCommandProcessor(CommandProcessor commandProcessor) throws Exception {
+        gcp.removeCommandProcessor(commandProcessor);
+        processGcodeFile();
+
+        if(gcodeFile != null) {
+            processGcodeFile();
+        }
+    }
+
     @Override
     public File getGcodeFile() {
         logger.log(Level.FINEST, "Getting gcode file.");
@@ -770,12 +807,13 @@ public class GUIBackend implements BackendAPI, ControllerListener, SettingChange
 
     @Override
     public void setWorkPositionUsingExpression(final Axis axis, final String expression) throws Exception {
+        Units preferredUnits = getSettings().getPreferredUnits();
         String expr = StringUtils.trimToEmpty(expression);
-        expr = expr.replaceAll("#", String.valueOf(getWorkPosition().get(axis)));
+        expr = expr.replaceAll("#", String.valueOf(getWorkPosition().getPositionIn(preferredUnits).get(axis)));
 
-        // If the expression starts with a mathimatical operation add the original position
+        // If the expression starts with a mathematical operation add the original position
         if (StringUtils.startsWithAny(expr, "/", "*")) {
-            double value = getWorkPosition().get(axis);
+            double value = getWorkPosition().getPositionIn(preferredUnits).get(axis);
             expr = value + " " + expr;
         }
 
@@ -783,8 +821,8 @@ public class GUIBackend implements BackendAPI, ControllerListener, SettingChange
         ScriptEngineManager mgr = new ScriptEngineManager();
         ScriptEngine engine = mgr.getEngineByName("JavaScript");
         try {
-            double position = Double.valueOf(engine.eval(expr).toString());
-            setWorkPosition(PartialPosition.from(axis, position));
+            double position = Double.parseDouble(engine.eval(expr).toString());
+            setWorkPosition(PartialPosition.from(axis, position, preferredUnits));
         } catch (ScriptException e) {
             throw new Exception("Invalid expression", e);
         }
@@ -817,7 +855,7 @@ public class GUIBackend implements BackendAPI, ControllerListener, SettingChange
             logger.info("Start preprocessing");
             long start = System.currentTimeMillis();
             if (this.processedGcodeFile == null || forceReprocess) {
-                gcp.reset();
+                gcodeParser.reset();
 
                 String name = startFile.getName();
 
@@ -834,7 +872,7 @@ public class GUIBackend implements BackendAPI, ControllerListener, SettingChange
                 }
 
                 // Store gcode file stats.
-                GcodeStats gs = gcp.getCurrentStats();
+                GcodeStats gs = gcodeParser.getCurrentStats();
                 this.settings.setFileStats(new FileStats(
                     gs.getMin(), gs.getMax(), gs.getCommandCount()));
             }

@@ -24,6 +24,7 @@ import com.willwinder.universalgcodesender.gcode.GcodeCommandCreator;
 import com.willwinder.universalgcodesender.listeners.ControllerListener;
 import com.willwinder.universalgcodesender.listeners.ControllerState;
 import com.willwinder.universalgcodesender.listeners.ControllerStatus;
+import com.willwinder.universalgcodesender.model.PartialPosition;
 import com.willwinder.universalgcodesender.model.Position;
 import com.willwinder.universalgcodesender.model.UGSEvent;
 import com.willwinder.universalgcodesender.model.UnitUtils;
@@ -53,15 +54,7 @@ import java.lang.reflect.Field;
 import java.util.Arrays;
 import java.util.Collection;
 
-import static org.easymock.EasyMock.anyObject;
-import static org.easymock.EasyMock.anyString;
-import static org.easymock.EasyMock.capture;
-import static org.easymock.EasyMock.expect;
-import static org.easymock.EasyMock.expectLastCall;
-import static org.easymock.EasyMock.newCapture;
-import static org.easymock.EasyMock.replay;
-import static org.easymock.EasyMock.reset;
-import static org.easymock.EasyMock.verify;
+import static org.easymock.EasyMock.*;
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertTrue;
 
@@ -145,7 +138,7 @@ public class AbstractControllerTest {
         expect(expectLastCall()).anyTimes();
         mockMessageService.dispatchMessage(anyObject(), anyString());
         expect(expectLastCall()).anyTimes();
-        mockCommunicator.connect(ConnectionDriver.JSERIALCOMM, port, portRate);
+        mockCommunicator.connect(or(eq(ConnectionDriver.JSERIALCOMM), eq(ConnectionDriver.JSSC)), eq(port), eq(portRate));
         expect(instance.isCommOpen()).andReturn(false).once();
         expect(instance.isCommOpen()).andReturn(true).anyTimes();
         expect(instance.handlesAllStateChangeEvents()).andReturn(handleStateChange).anyTimes();
@@ -566,8 +559,8 @@ public class AbstractControllerTest {
         niceInstance.setDistanceModeCode("G90");
         niceInstance.setUnitsCode("G21");
 
-        niceInstance.jogMachine(-10, 0, 10, 11, UnitUtils.Units.INCH);
-        niceInstance.jogMachine(0, 10, 0, 11, UnitUtils.Units.MM);
+        niceInstance.jogMachine(new PartialPosition(-10., null, 10., UnitUtils.Units.INCH), 11);
+        niceInstance.jogMachine(new PartialPosition(null, 10., null, UnitUtils.Units.MM), 11);
 
         assertEquals(4, gcodeCommandCapture.getValues().size());
         assertEquals("G20G91G1X-10Z10F11", gcodeCommandCapture.getValues().get(0).getCommandString());

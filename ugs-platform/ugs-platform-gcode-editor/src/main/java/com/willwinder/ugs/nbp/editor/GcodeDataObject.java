@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2019 Will Winder
+    Copyright 2016-2021 Will Winder
 
     This file is part of Universal Gcode Sender (UGS).
 
@@ -29,6 +29,7 @@ import org.openide.loaders.MultiFileLoader;
 import org.openide.util.NbBundle.Messages;
 
 import java.io.IOException;
+import java.util.logging.Logger;
 
 @Messages({
         "LBL_Gcode_LOADER=Files of Gcode"
@@ -98,6 +99,7 @@ import java.io.IOException;
         )
 })
 public class GcodeDataObject extends MultiDataObject {
+    private static final Logger LOGGER = Logger.getLogger(GcodeDataObject.class.getName());
 
     public GcodeDataObject(FileObject pf, MultiFileLoader loader) throws IOException {
         super(pf, loader);

@@ -19,7 +19,7 @@
                 <extensions>true</extensions>
                 <configuration>
                     <publicPackages>
-                        com.willwinder.ugs.nbp.core.actions
+                        <publicPackage>com.willwinder.ugs.nbp.core.actions</publicPackage>
                     </publicPackages>
                 </configuration>
             </plugin>
@@ -106,6 +106,24 @@
         <dependency>
             <groupId>org.netbeans.api</groupId>
             <artifactId>org-netbeans-modules-editor</artifactId>
+            <version>${netbeans.version}</version>
+            <type>jar</type>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-loaders</artifactId>
+            <version>${netbeans.version}</version>
+            <type>jar</type>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-nodes</artifactId>
+            <version>${netbeans.version}</version>
+            <type>jar</type>
+        </dependency>
+        <dependency>
+            <groupId>org.netbeans.api</groupId>
+            <artifactId>org-openide-text</artifactId>
             <version>${netbeans.version}</version>
             <type>jar</type>
         </dependency>

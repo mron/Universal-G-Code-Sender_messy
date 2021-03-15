@@ -1,5 +1,5 @@
 /*
-    Copyright 2016-2018 Will Winder
+    Copyright 2016-2021 Will Winder
 
     This file is part of Universal Gcode Sender (UGS).
 
@@ -116,6 +116,15 @@ public class JogService {
         setStepSizeZ(decreaseSize(getStepSizeZ()));
     }
 
+    public void increaseABCStepSize() {
+        setStepSizeABC(increaseSize(getStepSizeABC()));
+    }
+
+    public void decreaseABCStepSize() {
+        setStepSizeABC(decreaseSize(getStepSizeABC()));
+    }
+
+
     public void divideXYStepSize() {
         setStepSizeXY(divideSize(getStepSizeXY()));
     }
@@ -124,12 +133,20 @@ public class JogService {
         setStepSizeZ(divideSize(getStepSizeZ()));
     }
 
+    public void divideABCStepSize() {
+        setStepSizeABC(divideSize(getStepSizeZ()));
+    }
+
     public void multiplyXYStepSize() {
         setStepSizeXY(multiplySize(getStepSizeXY()));
     }
 
     public void multiplyZStepSize() {
         setStepSizeZ(multiplySize(getStepSizeZ()));
+    }
+
+    public void multiplyABCStepSize() {
+        setStepSizeABC(multiplySize(getStepSizeZ()));
     }
 
     public void multiplyFeedRate() {
@@ -148,16 +165,21 @@ public class JogService {
         setFeedRate(decreaseSize(getFeedRate()));
     }
 
-    public void setStepSizeXY(double size) {
-        getSettings().setManualModeStepSize(size);
-    }
 
     private Settings getSettings() {
         return backend.getSettings();
     }
 
+    public void setStepSizeXY(double size) {
+        getSettings().setManualModeStepSize(size);
+    }
+
     public void setStepSizeZ(double size) {
-        getSettings().setzJogStepSize(size);
+        getSettings().setZJogStepSize(size);
+    }
+
+    public void setStepSizeABC(double size) {
+        getSettings().setABCJogStepSize(size);
     }
 
     public void setFeedRate(double rate) {
@@ -185,13 +207,14 @@ public class JogService {
     /**
      * Adjusts the location for each axises.
      */
-    public void adjustManualLocation(double distanceX, double distanceY, double distanceZ) {
+    public void adjustManualLocation(PartialPosition distance) {
         try {
             double feedRate = getSettings().getJogFeedRate();
             Units units = getSettings().getPreferredUnits();
-            backend.adjustManualLocation(distanceX, distanceY, distanceZ, feedRate, units);
+            backend.adjustManualLocation(distance.getPositionIn(units), feedRate);
         } catch (Exception e) {
             // Not much we can do
+            logger.log(Level.SEVERE, "Could not jog the machine", e);
         }
     }
 
@@ -207,7 +230,7 @@ public class JogService {
             }
             double feedRate = getSettings().getJogFeedRate();
             Units preferredUnits = getSettings().getPreferredUnits();
-            backend.adjustManualLocation(0, 0, z * stepSize, feedRate, preferredUnits);
+            backend.adjustManualLocation(new PartialPosition(null, null, z * stepSize, preferredUnits), feedRate);
         } catch (Exception e) {
             //NotifyDescriptor nd = new NotifyDescriptor.Message(e.getMessage(), NotifyDescriptor.ERROR_MESSAGE);
             //DialogDisplayer.getDefault().notify(nd);
@@ -216,6 +239,10 @@ public class JogService {
 
     public boolean useStepSizeZ() {
         return getSettings().useZStepSize();
+    }
+
+    public boolean showABCStepSize() {
+        return getSettings().showABCStepSize();
     }
 
     /**
@@ -228,7 +255,30 @@ public class JogService {
             double feedRate = getFeedRate();
             double stepSize = getStepSizeXY();
             Units preferredUnits = getUnits();
-            backend.adjustManualLocation(x * stepSize, y * stepSize, 0, feedRate, preferredUnits);
+            Double dx = x == 0 ? null : x * stepSize;
+            Double dy = y == 0 ? null : y * stepSize;
+            backend.adjustManualLocation(new PartialPosition(dx, dy, null, preferredUnits), feedRate);
+        } catch (Exception e) {
+            //NotifyDescriptor nd = new NotifyDescriptor.Message(e.getMessage(), NotifyDescriptor.ERROR_MESSAGE);
+            //DialogDisplayer.getDefault().notify(nd);
+        }
+    }
+
+    /**
+     * Adjusts the rotation axis location.
+     * @param a direction.
+     * @param b direction.
+     * @param c direction.
+     */
+    public void adjustManualLocationABC(int a, int b, int c) {
+        try {
+            double feedRate = getFeedRate();
+            double stepSize = getStepSizeABC();
+            Units preferredUnits = getUnits();
+            Double da = a == 0 ? null : a * stepSize;
+            Double db = b == 0 ? null : b * stepSize;
+            Double dc = c == 0 ? null : c * stepSize;
+            backend.adjustManualLocation(new PartialPosition(null, null, null, da, db, dc, preferredUnits), feedRate);
         } catch (Exception e) {
             //NotifyDescriptor nd = new NotifyDescriptor.Message(e.getMessage(), NotifyDescriptor.ERROR_MESSAGE);
             //DialogDisplayer.getDefault().notify(nd);
@@ -246,7 +296,11 @@ public class JogService {
     }
 
     public double getStepSizeZ() {
-        return getSettings().getzJogStepSize();
+        return getSettings().getZJogStepSize();
+    }
+
+    public double getStepSizeABC() {
+        return getSettings().getABCJogStepSize();
     }
 
     public void cancelJog() {

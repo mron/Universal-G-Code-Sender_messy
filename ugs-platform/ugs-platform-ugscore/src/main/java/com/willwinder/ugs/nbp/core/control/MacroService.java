@@ -25,6 +25,7 @@ import com.willwinder.ugs.nbp.lib.services.LocalizingService;
 import com.willwinder.universalgcodesender.MacroHelper;
 import com.willwinder.universalgcodesender.i18n.Localization;
 import com.willwinder.universalgcodesender.model.BackendAPI;
+import com.willwinder.universalgcodesender.model.UGSEvent;
 import com.willwinder.universalgcodesender.types.Macro;
 import com.willwinder.universalgcodesender.utils.GUIHelpers;
 import com.willwinder.universalgcodesender.utils.Settings;
@@ -96,32 +97,5 @@ public final class MacroService {
         }
     }
 
-    protected class MacroAction extends AbstractAction {
-        private BackendAPI backend;
-        private Macro macro;
 
-        public MacroAction(BackendAPI b, Macro macro) {
-            backend = b;
-            this.macro = macro;
-        }
-
-        @Override
-        public void actionPerformed(ActionEvent e) {
-            if (macro != null && macro.getGcode() != null) {
-                EventQueue.invokeLater(() -> {
-                    try {
-                        MacroHelper.executeCustomGcode(macro.getGcode(), backend);
-                    } catch (Exception ex) {
-                        GUIHelpers.displayErrorDialog(ex.getMessage());
-                        Exceptions.printStackTrace(ex);
-                    }
-                });
-            }
-        }
-
-        @Override
-        public boolean isEnabled() {
-            return backend.isConnected() && backend.isIdle();
-        }
-    }
 }

@@ -207,8 +207,9 @@ public class GrblController extends AbstractController {
                 
                 this.grblVersion = GrblUtils.getVersionDouble(response);
                 this.grblVersionLetter = GrblUtils.getVersionLetter(response);
-                
+
                 this.capabilities = GrblUtils.getGrblStatusCapabilities(this.grblVersion, this.grblVersionLetter);
+
                 try {
                     this.sendCommandImmediately(createCommand(GrblUtils.GRBL_VIEW_SETTINGS_COMMAND));
                     this.sendCommandImmediately(createCommand(GrblUtils.GRBL_VIEW_PARSER_STATE_COMMAND));
@@ -439,7 +440,7 @@ public class GrblController extends AbstractController {
     @Override
     public void resetCoordinateToZero(final Axis axis) throws Exception {
         if (this.isCommOpen()) {
-            String gcode = GrblUtils.getResetCoordToZeroCommand(axis, this.grblVersion, this.grblVersionLetter);
+            String gcode = GrblUtils.getResetCoordToZeroCommand(axis, getCurrentGcodeState().getUnits(), this.grblVersion, this.grblVersionLetter);
             if (!"".equals(gcode)) {
                 GcodeCommand command = createCommand(gcode);
                 this.sendCommandImmediately(command);
@@ -456,7 +457,9 @@ public class GrblController extends AbstractController {
             throw new Exception("Must be connected to set work position");
         }
 
-        String gcode = GrblUtils.getSetCoordCommand(axisPosition, this.grblVersion, this.grblVersionLetter);
+        Units currentUnits = getCurrentGcodeState().getUnits();
+        PartialPosition position = axisPosition.getPositionIn(currentUnits);
+        String gcode = GrblUtils.getSetCoordCommand(position, this.grblVersion, this.grblVersionLetter);
         if (StringUtils.isNotEmpty(gcode)) {
             GcodeCommand command = createCommand(gcode);
             this.sendCommandImmediately(command);
@@ -527,14 +530,13 @@ public class GrblController extends AbstractController {
     }
 
     @Override
-    public void jogMachine(double distanceX, double distanceY, double distanceZ, double feedRate, Units units) throws Exception {
+    public void jogMachine(PartialPosition distance, double feedRate) throws Exception {
         if (capabilities.hasCapability(GrblCapabilitiesConstants.HARDWARE_JOGGING)) {
-            String commandString = GcodeUtils.generateMoveCommand( "G91",
-                     feedRate, distanceX, distanceY, distanceZ, units);
+            String commandString = GcodeUtils.generateMoveCommand( "G91", feedRate, distance);
             GcodeCommand command = createCommand("$J=" + commandString);
             sendCommandImmediately(command);
         } else {
-            super.jogMachine(distanceX, distanceY, distanceZ, feedRate, units);
+            super.jogMachine(distance, feedRate);
         }
     }
 

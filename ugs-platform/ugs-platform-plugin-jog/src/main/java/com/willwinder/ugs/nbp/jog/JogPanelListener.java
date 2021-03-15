@@ -1,5 +1,5 @@
 /*
-    Copyright 2018 Will Winder
+    Copyright 2018-2021 Will Winder
 
     This file is part of Universal Gcode Sender (UGS).
 
@@ -30,21 +30,21 @@ public interface JogPanelListener {
      *
      * @param button the enum for the button
      */
-    void onButtonClicked(JogPanelButtonEnum button);
+    void onJogButtonClicked(JogPanelButtonEnum button);
 
     /**
      * Is called when the button has been long pressed
      *
      * @param button the enum for the button
      */
-    void onButtonLongPressed(JogPanelButtonEnum button);
+    void onJogButtonLongPressed(JogPanelButtonEnum button);
 
     /**
      * Is called when a long pressed button has been released
      *
      * @param button the enum for the button
      */
-    void onButtonLongReleased(JogPanelButtonEnum button);
+    void onJogButtonLongReleased(JogPanelButtonEnum button);
 
     /**
      * Is called when the step size of the Z-axis is changed
@@ -61,9 +61,31 @@ public interface JogPanelListener {
     void onStepSizeXYChanged(double value);
 
     /**
+     * Is called when the step size of the ABC-axis is changed
+     *
+     * @param value the step size
+     */
+    void onStepSizeABCChanged(double value);
+
+    /**
      * Is called when the feed rate is changed
      *
      * @param value the feed rate
      */
     void onFeedRateChanged(int value);
+
+    /**
+     * Toggles the units (mm/inch)
+     */
+    void onToggleUnit();
+
+    /**
+     * Increases the step distance
+     */
+    void onIncreaseStepSize();
+
+    /**
+     * Decreases the step distance
+     */
+    void onDecreaseStepSize();
 }

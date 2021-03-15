@@ -71,8 +71,9 @@ import java.util.stream.Stream;
         lazy = false)
 @ActionReferences({
         @ActionReference(
-                path = LocalizingService.OutlineWindowPath,
-                position = 990)
+                path = LocalizingService.MENU_PROGRAM,
+                position = 1200,
+                separatorBefore = 1199)
 })
 public final class OutlineAction extends AbstractAction implements UGSEventListener {
 
@@ -108,7 +109,7 @@ public final class OutlineAction extends AbstractAction implements UGSEventListe
             try {
                 LOGGER.finest("Generating the outline of the gcode model");
                 LoaderDialogHelper.showDialog("Generating outline", 1500, (Component) e.getSource());
-                File gcodeFile = backend.getGcodeFile();
+                File gcodeFile = backend.getProcessedGcodeFile();
                 List<GcodeCommand> gcodeCommands = generateOutlineCommands(gcodeFile);
                 LoaderDialogHelper.closeDialog();
 

@@ -76,11 +76,6 @@ public class GcodeState {
         // TODO: Add WCS
         this.plane = Plane.XY;
 
-        this.isMetric = true;
-        this.units = G21;
-
-        this.inAbsoluteMode = true;
-        this.distanceMode = G90;
         // TODO: Feed mode
         this.speed = 0;
         this.spindleSpeed = 0;
@@ -114,7 +109,7 @@ public class GcodeState {
         ret.coolant = coolant;
 
         if (currentPoint != null) {
-            ret.currentPoint = new Position(currentPoint.x, currentPoint.y, currentPoint.z, UnitUtils.Units.getUnits(units));
+            ret.currentPoint = new Position(currentPoint.x, currentPoint.y, currentPoint.z, currentPoint.a, currentPoint.b, currentPoint.c, getUnits());
         }
         ret.commandNumber = commandNumber;
         return ret;
@@ -154,6 +149,15 @@ public class GcodeState {
         result.append(this.offset);
         result.append(this.plane.code);
         return result.toString();
+    }
+
+    /**
+     * Returns the states current units
+     *
+     * @return the units
+     */
+    public Units getUnits() {
+        return UnitUtils.Units.getUnits(units);
     }
 
     @Override

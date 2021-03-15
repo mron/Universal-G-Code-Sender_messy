@@ -1,5 +1,5 @@
 /*
-    Copyright 2014-2019 Will Winder
+    Copyright 2014-2021 Will Winder
 
     This file is part of Universal Gcode Sender (UGS).
 
@@ -19,24 +19,18 @@
 package com.willwinder.universalgcodesender.utils;
 
 import com.willwinder.universalgcodesender.connection.ConnectionDriver;
+import com.willwinder.universalgcodesender.model.Axis;
 import com.willwinder.universalgcodesender.model.Position;
 import com.willwinder.universalgcodesender.model.UnitUtils;
 import com.willwinder.universalgcodesender.model.UnitUtils.Units;
 import com.willwinder.universalgcodesender.types.Macro;
 import com.willwinder.universalgcodesender.types.WindowSettings;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.commons.lang3.SystemUtils;
 
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.ArrayDeque;
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.logging.Logger;
 
 public class Settings {
@@ -48,18 +42,29 @@ public class Settings {
 
     private String firmwareVersion = "GRBL";
     private String fileName = System.getProperty("user.home");
+
+    // Welcome screen
     private Deque<String> fileHistory = new ArrayDeque<>();
     private Deque<String> dirHistory = new ArrayDeque<>();
+
+    // Connection
     private String port = "";
     private String portRate = "115200";
+
+    // Jogging / JogService
     private boolean manualModeEnabled = false;
     private double manualModeStepSize = 1;
     private boolean useZStepSize = true;
+    private boolean showABCStepSize = true;
     private double zJogStepSize = 1;
+    private double abcJogStepSize = 1;
     private double jogFeedRate = 10;
+
+    // Console
     private boolean scrollWindowEnabled = true;
     private boolean verboseOutputEnabled = false;
     private boolean commandTableEnabled = false;
+
     // Sender Settings
     private WindowSettings mainWindowSettings = new WindowSettings(0,0,640,520);
     private WindowSettings visualizerWindowSettings = new WindowSettings(0,0,640,480);
@@ -67,11 +72,11 @@ public class Settings {
     private boolean statusUpdatesEnabled = true;
     private int statusUpdateRate = 200;
     private Units preferredUnits = Units.MM;
+    private Set<Axis> disabledAxes = new HashSet<>();
 
     private boolean showNightlyWarning = true;
     private boolean showSerialPortWarning = true;
     private boolean autoStartPendant = false;
-
     private boolean autoConnect = false;
     private boolean autoReconnect = false;
 
@@ -246,12 +251,30 @@ public class Settings {
         changed();
     }
 
-    public double getzJogStepSize() {
+    public boolean showABCStepSize() {
+        return this.showABCStepSize;
+    }
+
+    public void setShowABCStepSize(boolean showABCStepSize) {
+        this.showABCStepSize = showABCStepSize;
+        changed();
+    }
+
+    public double getZJogStepSize() {
         return zJogStepSize;
     }
 
-    public void setzJogStepSize(double zJogStepSize) {
+    public void setZJogStepSize(double zJogStepSize) {
         this.zJogStepSize = zJogStepSize;
+        changed();
+    }
+
+    public double getABCJogStepSize() {
+        return abcJogStepSize;
+    }
+
+    public void setABCJogStepSize(double abcJogStepSize) {
+        this.abcJogStepSize = abcJogStepSize;
         changed();
     }
 
@@ -339,7 +362,17 @@ public class Settings {
     public Units getPreferredUnits() {
         return (preferredUnits == null) ? Units.MM : preferredUnits;
     }
-        
+
+    public boolean isAxisEnabled(Axis a) {
+        return !this.disabledAxes.contains(a);
+    }
+
+    public void setAxisEnabled(Axis a, boolean enabled) {
+        if (enabled ? this.disabledAxes.remove(a) : this.disabledAxes.add(a)) {
+            changed();
+        }
+    }
+
     public void setPreferredUnits(Units units) {
         if (units != null) {
             double scaleUnits = UnitUtils.scaleUnits(preferredUnits, units);
@@ -348,7 +381,7 @@ public class Settings {
 
             // Change
             setManualModeStepSize(manualModeStepSize * scaleUnits);
-            setzJogStepSize(zJogStepSize * scaleUnits);
+            setZJogStepSize(zJogStepSize * scaleUnits);
             setJogFeedRate(Math.round(jogFeedRate * scaleUnits));
         }
     }
@@ -430,15 +463,23 @@ public class Settings {
     }
 
     public ConnectionDriver getConnectionDriver() {
-        ConnectionDriver connectionDriver = ConnectionDriver.JSERIALCOMM;
         if (StringUtils.isNotEmpty(this.connectionDriver)) {
             try {
-                connectionDriver = ConnectionDriver.valueOf(this.connectionDriver);
+                return ConnectionDriver.valueOf(this.connectionDriver);
             } catch (IllegalArgumentException | NullPointerException ignored) {
                 // Never mind, we'll use the default
             }
         }
-        return connectionDriver;
+
+        return getDefaultDriver();
+    }
+
+    private ConnectionDriver getDefaultDriver() {
+        ConnectionDriver result = ConnectionDriver.JSERIALCOMM;
+        if (SystemUtils.IS_OS_LINUX) {
+            result = ConnectionDriver.JSSC;
+        }
+        return result;
     }
 
     public void setConnectionDriver(ConnectionDriver connectionDriver) {

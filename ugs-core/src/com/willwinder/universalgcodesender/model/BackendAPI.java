@@ -21,6 +21,7 @@ package com.willwinder.universalgcodesender.model;
 
 import com.willwinder.universalgcodesender.IController;
 import com.willwinder.universalgcodesender.gcode.GcodeParser;
+import com.willwinder.universalgcodesender.gcode.processors.CommandProcessor;
 import com.willwinder.universalgcodesender.listeners.MessageListener;
 import com.willwinder.universalgcodesender.listeners.MessageType;
 import com.willwinder.universalgcodesender.model.UnitUtils.Units;
@@ -34,8 +35,20 @@ import java.util.List;
  * API used by front ends to interface with the model.
  */
 public interface BackendAPI extends BackendAPIReadOnly {
-    // Config options
+    /**
+     * Sets and loads a new gcode file, resets the parser and its processors.
+     *
+     * @param file the file to load
+     * @throws Exception
+     */
     void setGcodeFile(File file) throws Exception;
+
+    /**
+     * Reloads the currently loaded gcode file. This will retain the current parser and its processors.
+     *
+     * @throws Exception
+     */
+    void reloadGcodeFile() throws Exception;
 
     /**
      * Returns a list of files from the configured workspace directory
@@ -58,9 +71,28 @@ public interface BackendAPI extends BackendAPIReadOnly {
      * Modify the currently processed gcode with a provided gcode parser.
      * This can be used for post-processing tasks like rotating a gcode file.
      * @param gcp externally configured gcode parser.
-     * @throws Exception 
+     * @throws Exception
+     * @deprecated this will alter the gcode parser entirely, please use {@link #applyCommandProcessor(CommandProcessor)}
+     * to change the behaviour of the gcode parser.
      */
     void applyGcodeParser(GcodeParser gcp) throws Exception;
+
+    /**
+     * Adds a command processor and applies it to currently loaded program and subsequent
+     * loaded gcode programs.
+     *
+     * @param commandProcessor a command processor.
+     * @throws Exception
+     */
+    void applyCommandProcessor(CommandProcessor commandProcessor) throws Exception;
+
+    /**
+     * Removes a command processor.
+     *
+     * @param commandProcessor a command processor.
+     * @throws Exception
+     */
+    void removeCommandProcessor(CommandProcessor commandProcessor) throws Exception;
 
     /**
      * Process the currently loaded gcode file and export it to a file.
@@ -77,17 +109,14 @@ public interface BackendAPI extends BackendAPIReadOnly {
     void sendGcodeCommand(GcodeCommand command) throws Exception;
 
     /**
-     * Jogs the machine by a specified direction given distanceX, distanceY, distanceZ.
+     * Jogs the machine by a specified direction given by the partial position.
      * The distance is specified by the given units and can be a positive or negative value.
      *
-     * @param distanceX how long to jog on the X axis.
-     * @param distanceY how long to jog on the Y axis.
-     * @param distanceZ how long to jog on the Z axis.
+     * @param distance how long to jog along the different axes.
      * @param feedRate how fast should we jog in the given direction
-     * @param units the units of the distance and feed rate
      * @throws Exception if something went wrong when jogging
      */
-    void adjustManualLocation(double distanceX, double distanceY, double distanceZ, double feedRate, Units units) throws Exception;
+    void adjustManualLocation(PartialPosition distance, double feedRate) throws Exception;
 
     void probe(String axis, double feedRate, double distance, UnitUtils.Units units) throws Exception;
     void offsetTool(String axis, double offset, UnitUtils.Units units) throws Exception;

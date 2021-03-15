@@ -116,13 +116,13 @@ public class TinyGController extends AbstractController {
     }
 
     @Override
-    public void jogMachine(double distanceX, double distanceY, double distanceZ, double feedRate, UnitUtils.Units units) throws Exception {
+    public void jogMachine(PartialPosition distance, double feedRate) throws Exception {
         // Fetch the current coordinate units in which the machine is running
-        UnitUtils.Units targetUnits = UnitUtils.Units.getUnits(getCurrentGcodeState().units);
+        UnitUtils.Units targetUnits = getCurrentGcodeState().getUnits();
 
         // We need to convert to these units as we can not change the units in one command in TinyG
-        double scale = UnitUtils.scaleUnits(units, targetUnits);
-        String commandString = GcodeUtils.generateMoveCommand("G91G1", feedRate * scale, distanceX * scale, distanceY * scale, distanceZ * scale, targetUnits);
+        double scale = UnitUtils.scaleUnits(distance.getUnits(), targetUnits);
+        String commandString = GcodeUtils.generateMoveCommand("G91G1", feedRate * scale, distance.getPositionIn(targetUnits));
 
         GcodeCommand command = createCommand(commandString);
         command.setTemporaryParserModalChange(true);
@@ -133,7 +133,7 @@ public class TinyGController extends AbstractController {
     @Override
     public void jogMachineTo(final PartialPosition position, final double feedRate) throws Exception {
         // Fetch the current coordinate units in which the machine is running
-        UnitUtils.Units targetUnits = UnitUtils.Units.getUnits(getCurrentGcodeState().units);
+        UnitUtils.Units targetUnits = getCurrentGcodeState().getUnits();
 
         // We need to convert to these units as we can not change the units in one command in TinyG
         double scale = UnitUtils.scaleUnits(position.getUnits(), targetUnits);
@@ -230,6 +230,9 @@ public class TinyGController extends AbstractController {
             return;
         }
 
+        capabilities.addCapability(CapabilitiesConstants.X_AXIS);
+        capabilities.addCapability(CapabilitiesConstants.Y_AXIS);
+        capabilities.addCapability(CapabilitiesConstants.Z_AXIS);
         capabilities.addCapability(CapabilitiesConstants.RETURN_TO_ZERO);
         capabilities.addCapability(CapabilitiesConstants.JOGGING);
         capabilities.removeCapability(CapabilitiesConstants.CONTINUOUS_JOGGING);
@@ -381,7 +384,7 @@ public class TinyGController extends AbstractController {
         Optional<GcodeCommand> gcodeCommand = TinyGUtils.createOverrideCommand(currentOverrides, command);
         if (gcodeCommand.isPresent()) {
             sendCommandImmediately(gcodeCommand.get());
-        }
+	}
     }
 
     @Override
