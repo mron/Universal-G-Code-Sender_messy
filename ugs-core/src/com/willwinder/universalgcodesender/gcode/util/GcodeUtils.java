@@ -57,9 +57,27 @@ public class GcodeUtils {
      */
     public static String generateMoveCommand(String command, double feedRate, PartialPosition p) {
         StringBuilder sb = new StringBuilder();
-
         sb.append(GcodeUtils.unitCommand(p.getUnits()));
-        sb.append(command);
+        buildBareMoveCommand(command, feedRate, p, sb);
+        return sb.toString();
+    }
+    
+    /**
+     * Generates a move command given a base command. The command will be appended with the relative movement to be made
+     * on the axises with the given feed rate. This method will NOT prefix the command with the unit setting G Code.
+     *
+     * @param command   the base command to use, ie: G91G1 or G1
+     * @param feedRate the maximum feed rate
+     * @param p partial position of movement
+     */
+    public static String generateBareMoveCommand(String command, double feedRate, PartialPosition p) {
+        StringBuilder sb = new StringBuilder();
+        buildBareMoveCommand(command, feedRate, p, sb);
+        return sb.toString();
+    }
+
+	private static void buildBareMoveCommand(String command, double feedRate, PartialPosition p, StringBuilder sb) {
+		sb.append(command);
         sb.append(p.getFormattedGCode(Utils.formatter));
 
         if (feedRate > 0) {
@@ -68,9 +86,7 @@ public class GcodeUtils {
                 sb.append("F").append(convertedFeedRate);
             }
         }
-
-        return sb.toString();
-    }
+	}
 
     /**
      * Generate a command to move to a specific coordinate

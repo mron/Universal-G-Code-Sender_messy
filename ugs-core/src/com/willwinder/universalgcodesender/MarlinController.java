@@ -1,5 +1,7 @@
 package com.willwinder.universalgcodesender;
 
+import static com.willwinder.universalgcodesender.model.UnitUtils.Units.MM;
+
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.util.StringTokenizer;
@@ -238,7 +240,7 @@ public class MarlinController extends AbstractController {
 	}
 
 	@Override
-	public void jogMachine(double distanceX, double distanceY, double distanceZ, double feedRate, Units units) throws Exception {
+	public void jogMachine(PartialPosition distance, double feedRate) throws Exception {
 		logger.log(Level.INFO, "Adjusting manual location.");
 
 		// G91 must be a separate command...
@@ -247,15 +249,13 @@ public class MarlinController extends AbstractController {
 		sendCommandImmediately(relCommand);
 
 		// ...as must the unit command
-		String unitCommandStr = GcodeUtils.unitCommand(units);
+		String unitCommandStr = GcodeUtils.unitCommand(distance.getUnits());
 		GcodeCommand unitCommand = createCommand(unitCommandStr);
 		unitCommand.setTemporaryParserModalChange(true);
 		sendCommandImmediately(unitCommand);
 
 		// don't send units with G1 line - Marlin doesnt like it
-		String commandString = GcodeUtils.generateMoveCommand("G1",
-				feedRate, distanceX, distanceY, distanceZ, Units.UNKNOWN);
-
+		String commandString = GcodeUtils.generateBareMoveCommand("G1", feedRate, distance);
 		GcodeCommand command = createCommand(commandString);
 		command.setTemporaryParserModalChange(true);
 		sendCommandImmediately(command);
@@ -389,12 +389,16 @@ public class MarlinController extends AbstractController {
 	@Override
 	public void returnToHome(double safetyHeightInMm) throws Exception {
 		if (isIdle()) {
+			// Convert the safety height to the same units as the current gcode state
+			UnitUtils.Units currentUnit = getCurrentGcodeState().getUnits();
+			double safetyHeight = safetyHeightInMm * UnitUtils.scaleUnits(MM, currentUnit);
+
 			// If Z is less than zero, raise it before further movement.
-			double currentZPosition = getControllerStatus().getWorkCoord().getPositionIn(UnitUtils.Units.MM).get(Axis.Z);
-			if (currentZPosition < safetyHeightInMm) {
-				String moveToSafetyHeightCommand = MarlinUtils.GCODE_RETURN_TO_Z_ZERO_LOCATION;
-				if (safetyHeightInMm > 0) {
-					moveToSafetyHeightCommand = GcodeUtils.generateMoveCommand("G0", 0, 0, 0, safetyHeightInMm, UnitUtils.Units.MM);
+			double currentZPosition = getControllerStatus().getWorkCoord().getPositionIn(currentUnit).get(Axis.Z);
+			if (currentZPosition < safetyHeight) {
+				String moveToSafetyHeightCommand = GcodeUtils.GCODE_RETURN_TO_Z_ZERO_LOCATION;
+				if (safetyHeight > 0) {
+					moveToSafetyHeightCommand = GcodeUtils.generateMoveCommand("G0", 0, new PartialPosition(null, null, safetyHeight, currentUnit));
 				}
 				sendCommandImmediately(createCommand(MarlinUtils.GCODE_ABS_COORDS));
 				sendCommandImmediately(createCommand(moveToSafetyHeightCommand));
