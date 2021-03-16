@@ -12,6 +12,9 @@ import javax.swing.Timer;
 
 import org.apache.commons.lang3.StringUtils;
 
+import com.willwinder.universalgcodesender.connection.ConnectionDriver;
+import static com.willwinder.universalgcodesender.model.UGSEvent.ControlState.*;
+
 import com.willwinder.universalgcodesender.firmware.IFirmwareSettings;
 import com.willwinder.universalgcodesender.firmware.marlin.MarlinFirmwareSettings;
 import com.willwinder.universalgcodesender.gcode.GcodeCommandCreator;
@@ -31,7 +34,7 @@ import com.willwinder.universalgcodesender.types.GcodeCommand;
 
 public class MarlinController extends AbstractController {
 
-	private static final Logger logger = Logger.getLogger(MarlinController.class.getName());
+    private static final Logger logger = Logger.getLogger(MarlinController.class.getName());
 
 	private final MarlinFirmwareSettings firmwareSettings;
 	private Capabilities capabilities = new Capabilities();
@@ -59,7 +62,76 @@ public class MarlinController extends AbstractController {
 		this.positionPollTimer = createPositionPollTimer();
 		this.setSingleStepMode(true);
 	}
+	// Try overriding port open and close
+	// This is stolen from the Abstract Class.
 
+	// This metadata needs to be cached instead of looked up from queues and
+    // streams, because those sources may be compromised during a cancel.
+    private int numCommands = 0;
+
+    // Reset send queue and idx's.
+    private void flushSendQueues() {
+        numCommands = 0;
+    }
+
+	@Override
+    public Boolean openCommPort(ConnectionDriver connectionDriver, String port, int portRate) throws Exception {
+        if (isCommOpen()) {
+            throw new Exception("Comm port is already open.");
+        }
+        
+        // No point in checking response, it throws an exception on errors.
+        this.comm.connect(connectionDriver, port, portRate);
+        this.setCurrentState(COMM_IDLE);
+        
+        if (isCommOpen()) {
+            this.openCommAfterEvent();
+
+            this.dispatchConsoleMessage( MessageType.INFO,
+                    "****  My Port Connected to " + port + " @ " + portRate + " baud ****\n");
+			
+			updateControllerState("Idle", ControllerState.IDLE);
+			// this.isReady = true;
+			/*
+			* resetBuffers();
+			*
+			*
+			*/
+			this.stopPollingPosition();
+			positionPollTimer = createPositionPollTimer();
+			this.beginPollingPosition();
+		}
+        
+        return isCommOpen();
+    }
+
+	@Override
+    public Boolean closeCommPort() throws Exception {
+        // Already closed.
+        if (!isCommOpen()) {
+            return true;
+        }
+        this.stopPollingPosition(); // Stop polling timer
+
+        this.closeCommBeforeEvent();
+        
+        this.dispatchConsoleMessage(MessageType.INFO,"**** Connection closed ****\n");
+        
+        // I was noticing odd behavior, such as continuing to send 'ok's after
+        // closing and reopening the comm port.
+        // Note: The "Configuring-Grbl-v0.8" documentation recommends frequent
+        //       soft resets, but also warns that the "startup" block will run
+        //       on a reset and startup blocks may include motion commands.
+        //this.issueSoftReset();
+        this.flushSendQueues();
+        this.commandCreator.resetNum();
+        this.comm.disconnect();
+
+        this.closeCommAfterEvent();
+        return true;
+    }
+
+	//
 	@Override
 	public void sendOverrideCommand(Overrides command) throws Exception {
 		// TODO Auto-generated method stub
@@ -75,7 +147,7 @@ public class MarlinController extends AbstractController {
 	@Override
 	public Capabilities getCapabilities() {
 		// TODO Auto-generated method stub
-		return null;
+		return capabilities;
 	}
 
 	@Override
@@ -166,7 +238,7 @@ public class MarlinController extends AbstractController {
 			if (MarlinUtils.isOkResponse(response)) {
 				this.commandComplete(processed);
 				logger.info("active count after rx: " + marlinComm.activeCommandListSize());
-				updateControllerState("Idle", ControllerState.IDLE);
+				// updateControllerState("Idle", ControllerState.IDLE);
 				marlinComm.setMarlinBusy(false);
 				isResuming = false;
 			} else if (MarlinUtils.isPausedResponse(response)) {
@@ -198,16 +270,16 @@ public class MarlinController extends AbstractController {
 
 				this.checkStreamFinished();
 			} else if (response.contains("Free Memory:")) {
-				updateControllerState("Idle", ControllerState.IDLE);
-				// this.isReady = true;
-				/*
-				 * resetBuffers();
-				 *
-				 *
-				 */
-				this.stopPollingPosition();
-				positionPollTimer = createPositionPollTimer();
-				this.beginPollingPosition();
+				// updateControllerState("Idle", ControllerState.IDLE);
+				// // this.isReady = true;
+				// /*
+				//  * resetBuffers();
+				//  *
+				//  *
+				//  */
+				// this.stopPollingPosition();
+				// positionPollTimer = createPositionPollTimer();
+				// this.beginPollingPosition();
 			} else if (MarlinUtils.isMarlinEchoMessage(response)) {
 				// processed = response;
 			}
@@ -297,7 +369,8 @@ public class MarlinController extends AbstractController {
 						try {
 							if (outstandingPolls == 0) {
 								outstandingPolls++;
-								sendCommandImmediately(createCommand("M114"));
+								sendCommandImmediately(createCommand("?"));
+								//dispatchConsoleMessage(MessageType.INFO, Localization.getString("controller.sendingstatus\n"));
 							} else {
 								// If a poll is somehow lost after 20 intervals,
 								// reset for sending another.
@@ -318,7 +391,7 @@ public class MarlinController extends AbstractController {
 		};
 
 		// int statusUpdateRate = this.getStatusUpdateRate();
-		int statusUpdateRate = 5000;
+		int statusUpdateRate = 500;
 		logger.info("creating status timer with " + statusUpdateRate + " ms interval");
 		return new Timer(statusUpdateRate, actionListener);
 	}
