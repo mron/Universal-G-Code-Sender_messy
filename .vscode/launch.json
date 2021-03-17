@@ -1,0 +1,71 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "Launch MainWindow",
+            "request": "launch",
+            "mainClass": "com.willwinder.universalgcodesender.MainWindow",
+            "projectName": "ugs-classic"
+        },
+        {
+            "type": "java",
+            "name": "Launch VisualizerCLI",
+            "request": "launch",
+            "mainClass": "com.willwinder.universalgcodesender.CLI.VisualizerCLI",
+            "projectName": "ugs-classic"
+        },
+        {
+            "type": "java",
+            "name": "Launch TerminalClient",
+            "request": "launch",
+            "mainClass": "com.willwinder.ugs.cli.TerminalClient",
+            "projectName": "ugs-cli"
+        },
+        {
+            "type": "java",
+            "name": "Launch WidgetPreviewer",
+            "request": "launch",
+            "mainClass": "com.willwinder.universalgcodesender.uielements.WidgetPreviewer",
+            "projectName": "ugs-core"
+        },
+        {
+            "type": "java",
+            "name": "Launch JogPanelTest",
+            "request": "launch",
+            "mainClass": "com.willwinder.ugs.nbp.jog.JogPanelTest",
+            "projectName": "ugs-platform-plugin-jog"
+        },
+        {
+            "type": "java",
+            "name": "Launch SetupWizardTest",
+            "request": "launch",
+            "mainClass": "com.willwinder.ugs.nbp.setupwizard.SetupWizardTest",
+            "projectName": "ugs-platform-plugin-setup-wizard"
+        },
+        {
+            "type": "java",
+            "name": "Launch JOGLGearsDemo",
+            "request": "launch",
+            "mainClass": "com.willwinder.ugs.nbm.visualizer.JOGLGearsDemo",
+            "projectName": "ugs-platform-visualizer"
+        },
+        {
+            "type": "java",
+            "name": "Launch VisualizerTestMain",
+            "request": "launch",
+            "mainClass": "com.willwinder.ugs.nbm.visualizer.VisualizerTestMain",
+            "projectName": "ugs-platform-visualizer"
+        },
+        {
+            "type": "java",
+            "name": "Launch JLinkButton",
+            "request": "launch",
+            "mainClass": "com.willwinder.ugp.welcome.content.JLinkButton",
+            "projectName": "ugs-platform-welcome-page"
+        }
+    ]
+}
