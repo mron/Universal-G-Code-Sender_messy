@@ -48,7 +48,7 @@ public class ControllerStatus {
     public ControllerStatus(ControllerState state, Position machineCoord, Position workCoord) {
         this(state, machineCoord, workCoord, 0d, UnitUtils.Units.MM, 0d, null, null, null, null);
     }
-    
+
     public ControllerStatus(ControllerState state, Position machineCoord, Position workCoord, Double fr) {
         this(state, machineCoord, workCoord, fr , UnitUtils.Units.MM, 0d, null, null, null, null);
     }

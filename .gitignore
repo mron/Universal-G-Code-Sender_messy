@@ -14,6 +14,7 @@ tar.gz
 .project
 .settings
 /*.log
+/*.dat
 /UGSPlatform/build/
 /UGSPlatform/CentralLookup/build/
 /UGSPlatform/CentralLookup/nbproject/private/
