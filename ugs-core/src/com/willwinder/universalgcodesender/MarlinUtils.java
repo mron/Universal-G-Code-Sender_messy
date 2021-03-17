@@ -23,7 +23,7 @@ public class MarlinUtils {
 	/**
 	 * Check if a string contains a Marlin position string.
 	 */
-	private static final String STATUS_REGEX = "^X\\:";
+	private static final String STATUS_REGEX = "^<<X\\:";
 	private static final Pattern STATUS_PATTERN = Pattern.compile(STATUS_REGEX);
 	private static final String GCODE_SET_COORDINATE = "G92";
 	public static final String GCODE_ABS_COORDS = "G90";
@@ -48,16 +48,13 @@ public class MarlinUtils {
 			ControllerStatus lastStatus, final String status,
 			final Capabilities version, Units reportingUnits) {
 			// final Pattern splitterPattern = Pattern.compile("^X\\:([^ ]+) Y\\:([^ ]+) Z\\:([^ ]+) E");
-			// final Pattern splitterPattern = Pattern.compile("^\<\<X\\:([^ ]+) Y\\:([^ ]+) Z\\:([^ ]+) E\\:[^ ]+ F\\:([^ ]+) S_XYZ\\:([^ ])\>\>" );
-			final Pattern splitterPattern = Pattern.compile( "[XYZ_SF]+:([^ ]+)" );
-			
+			final Pattern splitterPattern = Pattern.compile("^<<X:([^ ]+) Y:([^ ]+) Z:([^ ]+) E:[^ ]+ F:([^ ]+) S_XYZ:([^ ])>>" );
 		Matcher matcher = splitterPattern.matcher(status);
 		if (matcher.find()) {
 			Double xpos = getCoord(matcher, 1);
 			Double ypos = getCoord(matcher, 2);
 			Double zpos = getCoord(matcher, 3);
 			Double fr = getCoord(matcher, 4); // Feedrate
-			fr = 100.00;
 			Integer s = Integer.parseInt( matcher.group(5) ); //Status
 			ControllerState cs = lastStatus.getState();
 			/*

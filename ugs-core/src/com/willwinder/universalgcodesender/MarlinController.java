@@ -8,6 +8,9 @@ import java.util.StringTokenizer;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import javax.swing.Timer;
 
 import org.apache.commons.lang3.StringUtils;
@@ -76,27 +79,9 @@ public class MarlinController extends AbstractController {
 
 	@Override
     public Boolean openCommPort(ConnectionDriver connectionDriver, String port, int portRate) throws Exception {
-        if (isCommOpen()) {
-            throw new Exception("Comm port is already open.");
-        }
+        super.openCommPort( connectionDriver,  port,  portRate) ;
         
-        // No point in checking response, it throws an exception on errors.
-        this.comm.connect(connectionDriver, port, portRate);
-        this.setCurrentState(COMM_IDLE);
-        
-        if (isCommOpen()) {
-            this.openCommAfterEvent();
-
-            this.dispatchConsoleMessage( MessageType.INFO,
-                    "****  My Port Connected to " + port + " @ " + portRate + " baud ****\n");
-			
-			updateControllerState("Idle", ControllerState.IDLE);
-			// this.isReady = true;
-			/*
-			* resetBuffers();
-			*
-			*
-			*/
+        if ( isCommOpen()) {
 			this.stopPollingPosition();
 			positionPollTimer = createPositionPollTimer();
 			this.beginPollingPosition();
@@ -107,28 +92,13 @@ public class MarlinController extends AbstractController {
 
 	@Override
     public Boolean closeCommPort() throws Exception {
+		super.closeCommPort() ;
         // Already closed.
         if (!isCommOpen()) {
+			this.stopPollingPosition(); // Stop polling timer
             return true;
         }
-        this.stopPollingPosition(); // Stop polling timer
-
-        this.closeCommBeforeEvent();
-        
-        this.dispatchConsoleMessage(MessageType.INFO,"**** Connection closed ****\n");
-        
-        // I was noticing odd behavior, such as continuing to send 'ok's after
-        // closing and reopening the comm port.
-        // Note: The "Configuring-Grbl-v0.8" documentation recommends frequent
-        //       soft resets, but also warns that the "startup" block will run
-        //       on a reset and startup blocks may include motion commands.
-        //this.issueSoftReset();
-        this.flushSendQueues();
-        this.commandCreator.resetNum();
-        this.comm.disconnect();
-
-        this.closeCommAfterEvent();
-        return true;
+        return true; // Return true no matter what?
     }
 
 	//
@@ -280,6 +250,12 @@ public class MarlinController extends AbstractController {
 				// this.stopPollingPosition();
 				// positionPollTimer = createPositionPollTimer();
 				// this.beginPollingPosition();
+			} else if (response.contains("S_XYZ")) {
+				final Pattern splitterPattern = Pattern.compile("^S_XYZ:([^ ])" );
+				Matcher matcher = splitterPattern.matcher(response);
+				if (matcher.find()) {
+					Integer s = Integer.parseInt( matcher.group(1) ); //Status
+				}
 			} else if (MarlinUtils.isMarlinEchoMessage(response)) {
 				// processed = response;
 			}
@@ -391,7 +367,7 @@ public class MarlinController extends AbstractController {
 		};
 
 		// int statusUpdateRate = this.getStatusUpdateRate();
-		int statusUpdateRate = 500;
+		int statusUpdateRate = 2000;
 		logger.info("creating status timer with " + statusUpdateRate + " ms interval");
 		return new Timer(statusUpdateRate, actionListener);
 	}
