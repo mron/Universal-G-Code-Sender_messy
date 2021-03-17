@@ -354,6 +354,7 @@ public class MarlinController extends AbstractController {
 								if (outstandingPolls >= 20) {
 									outstandingPolls = 0;
 								}
+								
 							}
 						} catch (Exception ex) {
 							dispatchConsoleMessage(MessageType.INFO, Localization.getString("controller.exception.sendingstatus")

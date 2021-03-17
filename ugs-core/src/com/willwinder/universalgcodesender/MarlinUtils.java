@@ -57,7 +57,6 @@ public class MarlinUtils {
 			Double fr = getCoord(matcher, 4); // Feedrate
 			Integer s = Integer.parseInt( matcher.group(5) ); //Status
 			ControllerState cs = lastStatus.getState();
-			
 			/*
 			  Here's what Marlin thinks
 			  enum M_StateEnum : uint8_t {
