@@ -5,7 +5,6 @@ import static com.willwinder.universalgcodesender.AbstractCommunicator.SerialCom
 import java.util.StringTokenizer;
 import java.util.logging.Logger;
 
-
 import com.willwinder.universalgcodesender.types.GcodeCommand;
 
 public class MarlinCommunicator extends BufferedCommunicator {
